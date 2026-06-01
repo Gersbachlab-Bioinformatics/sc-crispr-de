@@ -1,0 +1,13 @@
+# R
+.Rhistory
+.RData
+.Rproj.user
+*.RData
+*.rds
+
+# Output files
+*.out
+*.txt
+
+# macOS
+.DS_Store
