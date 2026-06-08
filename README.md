@@ -87,6 +87,54 @@ Edit the path variables at the top of `sbatch_run_negbinom.sh`, then:
 bash sbatch_run_negbinom.sh
 ```
 
+### Step 3 — Run FRACTEL rank aggregation
+
+After all array jobs have completed, run [FRACTEL](https://github.com/Gersbachlab-Bioinformatics/FRACTEL) to aggregate per-guide p-values into element-level significance scores.
+
+**Install FRACTEL** (once):
+
+```bash
+pip install --force --no-deps git+https://github.com/Gersbachlab-Bioinformatics/FRACTEL
+```
+
+**Configure and run** `run_fractel.sh`:
+
+Edit the variables at the top of `run_fractel.sh` (mirror the paths used in `sbatch_run_negbinom.sh`), then:
+
+```bash
+bash run_fractel.sh
+```
+
+The script performs three steps automatically:
+
+1. **Merge outputs** — concatenates all `<output-basename>.<job>.txt` files, filters to the `groupGroup2` negbinom component (the perturbation effect row), and renames `Pr(>|z|)` → `pvalue`.
+2. **Simulate null** — runs `fractel simulate` to build the RRA null distribution for each unique guide-per-gene count observed in the data.
+3. **Run FRACTEL** — runs `fractel run` grouping guides by `gene`, using `grna` as the row identifier and the NB `Estimate` coefficient as the effect size.
+
+**Output** — `<OUTPUT_BASENAME>.tsv.gz`, a compressed TSV with one row per gene and columns:
+
+| Column | Description |
+|---|---|
+| `gene` | Gene symbol (index) |
+| `FRACTEL_pval` | RRA element-level p-value |
+| `FRACTEL_pval_fdr_corr` | BH-corrected FDR across all genes |
+| `FRACTEL_effect_size` | Weighted-average NB estimate across top guides |
+
+**Optional: calibrate p-values** before running FRACTEL when non-targeting control p-values are not uniformly distributed:
+
+```bash
+fractel calibrate \
+    --data-frame <OUTPUT_BASENAME>.negbinom_merged.tsv \
+    --reference-data-frame <OUTPUT_BASENAME>.negbinom_merged.tsv \
+    --reference-df-select-col gene \
+    --reference-df-select-value <NTARGETING_KEYWORD> \
+    --pval-col pvalue \
+    --interpolated-col pvalue_calibrated \
+    --output-basename <OUTPUT_BASENAME>.negbinom_calibrated
+```
+
+Then re-run Step 3 of `run_fractel.sh` with `--data-frame` pointing to the calibrated file and `--pval-col pvalue_calibrated`.
+
 ### Key arguments
 
 | Argument | Description |
